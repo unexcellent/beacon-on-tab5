@@ -42,15 +42,15 @@ const DAC_VOLUME: u8 = 20;
 const SAMPLE_SCALE_NUM: i32 = 3;
 const SAMPLE_SCALE_DEN: i32 = 5;
 
-/// Bring up the ES8388 over I2C and open the I2S transmit channel.
-pub fn initialize_audio_channel(i2c: &mut impl I2c) -> Result<Es8388<I2sInterface>> {
+/// Bring up the ES8388 over I2C and open the I2S transmit channel. With the
+/// `usb-audio-dump` feature the channel is wrapped in the diagnostic tee.
+pub fn initialize_audio_channel<B: I2c>(i2c: &mut B) -> Result<impl AudioChannel + use<B>> {
     configure_codec(i2c).map_err(|_| Error::AudioInit)?;
     let interface = I2sInterface::new(&Es8388::<I2sInterface>::ENCODER, &TAB5_I2S)?;
-    Ok(Es8388::new(
-        interface,
-        TAB5_I2S.sample_rate,
-        TAB5_I2S.chunk_size,
-    ))
+    let audio = Es8388::new(interface, TAB5_I2S.sample_rate, TAB5_I2S.chunk_size);
+    #[cfg(feature = "usb-audio-dump")]
+    let audio = crate::audio_dump::TeeDump::new(audio);
+    Ok(audio)
 }
 
 /// Write the DAC-mode register sequence (esp_codec_dev's es8388_open +

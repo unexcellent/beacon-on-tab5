@@ -1,13 +1,3 @@
-//! Beacon firmware for the M5Stack Tab5 (ESP32-P4): the MOVE-IIIa SSTV beacon
-//! ported to bench hardware. Waits for the SSTV command on the USB-C serial
-//! link, captures a frame from the Tab5's SC202CS camera, Robot36-encodes it
-//! and plays it through the built-in speaker (ES8388 codec).
-//!
-//! All mission logic (idle loop, SSTV transmit, firmware update, CSP link
-//! protocol) comes from the `beacon` crate; this binary only supplies the Tab5
-//! bring-up: the USB-Serial-JTAG payload link, the shared I2C bus with its IO
-//! expanders, the ES8388 audio channel and the SC202CS camera.
-
 mod audio;
 #[cfg(feature = "usb-audio-dump")]
 mod audio_dump;
@@ -16,45 +6,54 @@ mod link;
 mod sc202cs;
 
 use beacon::camera::Camera;
-use beacon::error::ReportIfErr;
+use beacon::camera::esp::EspI2c;
+use beacon::error::{ReportIfErr, Result};
 use beacon::idle::idle;
 use beacon::link::{CommandLink, Message};
 
+use crate::audio::initialize_audio_channel;
+use crate::link::initialize_usb_link as bring_up_payload_link;
+use crate::sc202cs::initialize_rgb_camera;
+
 fn main() {
-    esp_idf_svc::sys::link_patches();
-    esp_idf_svc::log::EspLogger::initialize_default();
+    initialize_esp32();
+    let mut link = initialize_payload_link().unwrap();
 
-    let mut link = link::initialize_usb_link().unwrap();
-    report_successful_boot(&link);
-
-    // One physical I2C bus is shared by the IO expanders, the audio codec and
-    // the camera. The one-shot configuration (expanders, codec registers) runs
-    // first; afterwards the camera's CSI transport takes the bus over.
-    let i2c = board::initialize_i2c()
-        .and_then(|mut i2c| {
-            board::initialize_io_expanders(&mut i2c)?;
-            Ok(i2c)
-        })
+    let mut i2c = initialize_board().report_if_err(&link).unwrap();
+    let mut audio = initialize_audio_channel(&mut i2c)
         .report_if_err(&link)
         .unwrap();
 
-    let mut i2c = i2c;
-    let audio = audio::initialize_audio_channel(&mut i2c)
+    let rgb_camera = initialize_rgb_camera(i2c)
         .report_if_err(&link)
-        .unwrap();
-    #[cfg(feature = "usb-audio-dump")]
-    let audio = audio_dump::TeeDump::new(audio);
-    let mut audio = audio;
-
-    let cameras = vec![
-        sc202cs::initialize_rgb_camera(i2c)
-            .report_if_err(&link)
-            .ok()
-            .map(boxed),
-    ];
+        .ok()
+        .map(boxed);
 
     link.send(Message::Available);
-    idle(&mut link, cameras, &mut audio);
+    idle(&mut link, vec![rgb_camera], &mut audio);
+}
+
+fn initialize_esp32() {
+    esp_idf_svc::sys::link_patches();
+    esp_idf_svc::log::EspLogger::initialize_default();
+}
+
+fn initialize_payload_link() -> Result<impl CommandLink> {
+    let link = bring_up_payload_link()?;
+
+    report_successful_boot(&link);
+
+    Ok(link)
+}
+
+/// Bring up the one physical I2C bus shared by the IO expanders, the audio
+/// codec and the camera. The one-shot configuration (expanders, codec
+/// registers) runs first; afterwards the camera's CSI transport takes the bus
+/// over.
+fn initialize_board() -> Result<EspI2c> {
+    let mut i2c = board::initialize_i2c()?;
+    board::initialize_io_expanders(&mut i2c)?;
+    Ok(i2c)
 }
 
 fn report_successful_boot(link: &impl CommandLink) {
