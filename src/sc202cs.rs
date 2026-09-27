@@ -17,8 +17,8 @@ use embedded_hal::i2c::{ErrorType, I2c};
 use sstv::RgbPixel;
 
 /// SSTV output resolution the camera renders into.
-const OUTPUT_WIDTH: usize = sstv::Mode::Robot36.image_width() as usize;
-const OUTPUT_HEIGHT: usize = sstv::Mode::Robot36.image_height() as usize;
+const OUTPUT_WIDTH: usize = sstv::modes::ROBOT_36.resolution().0 as usize;
+const OUTPUT_HEIGHT: usize = sstv::modes::ROBOT_36.resolution().1 as usize;
 
 /// Frame length in lines (VTS; the init table keeps the sensor default 1250).
 const VTS: u16 = 1250;

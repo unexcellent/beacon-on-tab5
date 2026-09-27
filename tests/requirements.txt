@@ -1,0 +1,7 @@
+pytest
+pyserial
+sstv
+Pillow
+numpy
+sounddevice
+scipy
