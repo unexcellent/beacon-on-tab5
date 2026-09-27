@@ -6,7 +6,7 @@
 use beacon::error::{Error, Result};
 use beacon::link::csp::{CspLink, CspLinkConfig, SerialRead, SerialWrite};
 use beacon::link::payload::PayloadLink;
-use beacon::link::{CommandLink, Routes, NODE};
+use beacon::link::{CommandLink, NODE, Routes};
 use esp_idf_sys::{
     ESP_OK, esp_vfs_usb_serial_jtag_use_driver, usb_serial_jtag_driver_config_t,
     usb_serial_jtag_driver_install, usb_serial_jtag_read_bytes, usb_serial_jtag_wait_tx_done,

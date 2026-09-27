@@ -34,7 +34,7 @@ esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal.git", rev = "24e99b
 esp-idf-svc = { git = "https://github.com/esp-rs/esp-idf-svc.git", rev = "79dd63480a73a4ff11a49a5df95024bd85cd3912" }
 
 [dependencies]
-beacon = { path = "../beacon" }
+beacon = { git = "https://github.com/unexcellent/beacon.git", branch = "main" }
 embedded-hal = "1"
 log = "0.4"
 sstv = { version = "0.2", default-features = false }
